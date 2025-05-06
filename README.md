@@ -7,7 +7,7 @@
 
 # Requirements
 
--ahk
+-ahk v1
 -Ahk Requires pin.ico in the script's folder. Executable doesn't. 
 
 
