@@ -2,10 +2,11 @@
 #Persistent
 #NoEnv
 SetBatchLines, -1
-
+if (!A_IsAdmin)
+    Run *RunAs "%A_ScriptFullPath%"
 ; --- CONFIG ---
 TRAY_ICON := "pin.ico"  ; Relative path (same folder as script)
-MAX_WINDOWS_TO_SHOW := 30
+MAX_WINDOWS_TO_SHOW := 100
 MENU_BG_COLOR := "#11111c"
 MENU_TEXT_COLOR := "#e4aaeb"
 ; ---------------
@@ -44,6 +45,7 @@ return
             Winset, Alwaysontop, ON, ahk_id %hWnd%
             TrayTip, Always-on-top, Window pinned., , 16 + 1
         }
+        ; Force immediate menu refresh
         RefreshTrayMenu()
         Sleep 3000
         HideTrayTip()
@@ -53,7 +55,7 @@ return
 RefreshTrayMenu() {
     global MAX_WINDOWS_TO_SHOW
     
-    ; Clear existing menu
+    ; Clear existing menu completely
     Menu, Tray, DeleteAll
     
     ; Get all visible windows
@@ -86,26 +88,59 @@ RefreshTrayMenu() {
         windowCount++
     }
     
-    ; Add unpinned windows first
+    ; Sort both sections by window title
+    SortWindowArrayByTitle(pinnedWindows)
+    SortWindowArrayByTitle(unpinnedWindows)
+    
+    ; Add unpinned windows first (top of menu)
     for index, window in unpinnedWindows {
         Menu, Tray, Add, % window.title, ToggleWindowPin
     }
     
-    ; Add separator if both types exist
+    ; Add separator if both sections exist
     if (unpinnedWindows.Length() > 0 && pinnedWindows.Length() > 0)
         Menu, Tray, Add
     
-    ; Add pinned windows
+    ; Add pinned windows (closer to taskbar)
     for index, window in pinnedWindows {
         Menu, Tray, Add, % window.title, ToggleWindowPin
         Menu, Tray, Check, % window.title
     }
     
-    ; Add standard menu items
+    ; Add standard menu items at very bottom
     Menu, Tray, Add  ; Separator
     Menu, Tray, Add, &Refresh List, RefreshTrayMenu
     Menu, Tray, Add, E&xit, ExitApp
     Menu, Tray, Default, &Refresh List
+    
+    ; Force menu to update
+    Menu, Tray, UseErrorLevel
+}
+
+SortWindowArrayByTitle(ByRef arr) {
+    ; Create index map for sorting
+    titles := []
+    for index, window in arr {
+        titles.Push(window.title)
+    }
+    
+    ; Sort the titles alphabetically (case insensitive)
+    Sort, titles, D`n
+    
+    ; Rebuild the array in sorted order
+    sortedArr := []
+    Loop % titles.Length() {
+        currentTitle := titles[A_Index]
+        for index, window in arr {
+            if (window.title = currentTitle) {
+                sortedArr.Push(window)
+                break
+            }
+        }
+    }
+    
+    ; Replace original array with sorted version
+    arr := sortedArr
 }
 
 ToggleWindowPin:
@@ -120,6 +155,7 @@ ToggleWindowPin:
             Winset, Alwaysontop, ON, ahk_id %hWnd%
             TrayTip, Always-on-top, Window pinned., , 16 + 1
         }
+        ; Force immediate refresh
         RefreshTrayMenu()
         Sleep 3000
         HideTrayTip()
