@@ -1,2 +1,27 @@
-# PinWin
-A lightweight AutoHotkey script to pin/unpin windows on top with a middle-click on the title bar. Features a system tray menu listing up to 30 visible windows, with pinned windows checked. Toggle pinning via tray menu or middle-click.  Requires pin.ico in the script's folder.
+# PinWin Features:
+
+ - Lightweight script to set window(s) to display on top always by  simple middle-click on window's title bar.
+ - System tray menu displays list of current windows with a checkmark besides pinned windows (yes, you are able to left click any of the windows to change status too).
+ - Displays quick notification upon changing pin status.
+
+
+# Requirements
+.Ahk Requires pin.ico in the script's folder. Executable doesn't. 
+
+
+# How to Use
+- Run PinWin.ahk or PinWin.exe
+- Middle click unpinned application to pin window to top. Middle clicked pinned application to unpin window to top.
+- Right click tray icon for list
+- 
+ 
+# Support 
+
+paypal.me: 
+
+cashapp: 
+
+cheerios lads. 
+
+ 
+
