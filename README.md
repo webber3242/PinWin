@@ -6,14 +6,15 @@
 
 
 # Requirements
-.Ahk Requires pin.ico in the script's folder. Executable doesn't. 
+
+-ahk
+-Ahk Requires pin.ico in the script's folder. Executable doesn't. 
 
 
 # How to Use
 - Run PinWin.ahk or PinWin.exe
 - Middle click unpinned application to pin window to top. Middle clicked pinned application to unpin window to top.
-- Right click tray icon for list
-- 
+- Right click tray icon for list 
  
 # Support 
 
