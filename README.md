@@ -7,8 +7,8 @@
 
 # Requirements
 
--ahk v1
--Ahk Requires pin.ico in the script's folder. Executable doesn't. 
+- ahk v1
+- Ahk Requires pin.ico in the script's folder. Executable doesn't. 
 
 
 # How to Use
