@@ -16,11 +16,8 @@
 - Middle click unpinned application to pin window to top. Middle clicked pinned application to unpin window to top.
 - Right click tray icon for list 
  
-# Support 
-
-paypal.me: 
-
-cashapp: 
+#dancing for 10 gepe pl
+paypal.me/AjayNarang96
 
 cheerios lads. 
 
