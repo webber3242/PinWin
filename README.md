@@ -2,8 +2,8 @@
 
  - Lightweight script to set window(s) to display on top always by  simple middle-click on window's title bar.
  - System tray menu displays list of current windows with a checkmark besides pinned windows (yes, you are able to left click any of the windows to change status too).
- - Displays quick notification upon changing pin status.
-
+ - Displays quick notification upon changing pin status
+ - Displays active active application's path in solution Directory Opus  13 upon tying F3 (looks for active lister before creating a new one too). 
 
 # Requirements
 
