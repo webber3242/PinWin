@@ -16,7 +16,7 @@
 - Middle click unpinned application to pin window to top. Middle clicked pinned application to unpin window to top.
 - Right click tray icon for list 
  
-#dancing for 10 gepe pl
+#dancing for 10 geepee ploxty.
 paypal.me/AjayNarang96
 
 cheerios lads. 
