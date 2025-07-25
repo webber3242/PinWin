@@ -5,25 +5,22 @@ SendMode "Input"
 SetWorkingDir A_ScriptDir
 CoordMode "Mouse", "Screen"
 
-; --- CONFIG ---
 TRAY_ICON := A_ScriptDir "\pin.ico"
 MAX_WINDOWS_TO_SHOW := 30
 DOPUS_RT_PATH := "C:\Program Files\GPSoftware\Directory Opus\dopusrt.exe"
 DISABLED_REG_PATH := "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run_Disabled"
 ENABLED_REG_PATH := "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run"
 
-; --- Tray Icon Setup ---
-if FileExist(TRAY_ICON) {
-    TraySetIcon(TRAY_ICON)
+if (!FileExist(TRAY_ICON)) {
+    TrayTip("Tray icon not found at: " TRAY_ICON, "Error", "Iconx 3")
+    TraySetIcon()
 } else {
-    TraySetIcon()  ; fallback to default AHK icon
-    TrayTip("Tray icon not found at:`n" TRAY_ICON, "Error", "Iconx 3")
+    TraySetIcon(TRAY_ICON)
 }
 A_IconTip := "Middle-Click Title Bar Toggle`n(Pin/Unpin Windows)"
 
-; --- Check for dopusrt.exe ---
-if !FileExist(DOPUS_RT_PATH) {
-    TrayTip("dopusrt.exe not found at:`n" DOPUS_RT_PATH, "Error", "Iconx 3")
+if (!FileExist(DOPUS_RT_PATH)) {
+    TrayTip("dopusrt.exe not found at: " DOPUS_RT_PATH, "Error", "Iconx 3")
 }
 
 RefreshTrayMenu()
@@ -76,7 +73,7 @@ RegDisable(regPath, keyName) {
         RegDelete sourceRegPath, keyName
         return true
     } catch {
-        RegDelete targetRegPath, keyName  ; Clean up if write fails
+        RegDelete targetRegPath, keyName
         return false
     }
 }
@@ -89,7 +86,7 @@ RegEnable(keyName) {
         RegDelete DISABLED_REG_PATH, keyName
         return true
     } catch {
-        RegDelete ENABLED_REG_PATH, keyName  ; Clean up if write fails
+        RegDelete ENABLED_REG_PATH, keyName
         return false
     }
 }
@@ -119,11 +116,9 @@ GetDisabledPrograms() {
 
 RefreshTrayMenu() {
     A_TrayMenu.Delete()
-
     try {
         windowList := WinGetList()
     } catch {
-        ; Add standard menu items when getting window list fails
         A_TrayMenu.Add("&Refresh List", RefreshTrayMenuCallback)
         A_TrayMenu.Add("&Startup Manager", ShowStartupManagerCallback)
         A_TrayMenu.Add("&Auto-Start", ToggleAutoStartCallback)
@@ -136,7 +131,6 @@ RefreshTrayMenu() {
         return
     }
     if (!windowList.Length) {
-        ; Add standard menu items when no windows
         A_TrayMenu.Add("&Refresh List", RefreshTrayMenuCallback)
         A_TrayMenu.Add("&Startup Manager", ShowStartupManagerCallback)
         A_TrayMenu.Add("&Auto-Start", ToggleAutoStartCallback)
@@ -148,63 +142,46 @@ RefreshTrayMenu() {
         UpdateAutoStartCheck()
         return
     }
-
     pinnedWindows := []
     unpinnedWindows := []
     windowCount := 0
-
     for hWnd in windowList {
         if (windowCount >= MAX_WINDOWS_TO_SHOW)
             break
-
         try {
             title := WinGetTitle("ahk_id " hWnd)
             if (title = "")
                 continue
-
             style := WinGetStyle("ahk_id " hWnd)
-            if !(style & 0x10000000)  ; Skip invisible windows (WS_VISIBLE)
+            if !(style & 0x10000000)
                 continue
-
-            ; Check if window is pinned
             isPinned := WinGetExStyle("ahk_id " hWnd)
             windowObj := {
                 title: title, 
                 hWnd: hWnd, 
                 isPinned: (isPinned & 0x8) ? true : false
             }
-
             if (windowObj.isPinned) {
                 pinnedWindows.Push(windowObj)
             } else {
                 unpinnedWindows.Push(windowObj)
             }
             windowCount++
-
         } catch {
-            ; Skip windows that can't be processed
             continue
         }
     }
-
-    ; Add unpinned windows first
     for window in unpinnedWindows {
         windowTitle := window.title
         A_TrayMenu.Add(windowTitle, ToggleWindowPinCallback.Bind(windowTitle))
     }
-
-    ; Add separator if both types exist
     if (unpinnedWindows.Length > 0 && pinnedWindows.Length > 0)
         A_TrayMenu.Add()
-
-    ; Add pinned windows with checkmarks
     for window in pinnedWindows {
         windowTitle := window.title
         A_TrayMenu.Add(windowTitle, ToggleWindowPinCallback.Bind(windowTitle))
         A_TrayMenu.Check(windowTitle)
     }
-
-    ; Add standard menu items
     A_TrayMenu.Add()
     A_TrayMenu.Add("&Refresh List", RefreshTrayMenuCallback)
     A_TrayMenu.Add("&Startup Manager", ShowStartupManagerCallback)
@@ -214,12 +191,9 @@ RefreshTrayMenu() {
     A_TrayMenu.Add("&Reload This Script", ReloadScriptCallback)
     A_TrayMenu.Add("E&xit", ExitAppCallback)
     A_TrayMenu.Default := "&Refresh List"
-
-    ; Update auto-start checkbox
     UpdateAutoStartCheck()
 }
 
-; Callback functions for menu items
 RefreshTrayMenuCallback(*) {
     RefreshTrayMenu()
 }
@@ -249,12 +223,10 @@ ToggleWindowPinCallback(windowTitle, *) {
 }
 
 ToggleWindowPin(windowTitle) {
-    ; First try to get the window by exact title match
     hWnd := 0
     try {
         hWnd := WinGetID(windowTitle)
     } catch {
-        ; If exact match fails, try to find by partial title match
         windowList := WinGetList()
         for id in windowList {
             try {
@@ -268,30 +240,20 @@ ToggleWindowPin(windowTitle) {
             }
         }
     }
-
     if (hWnd && hWnd != 0) {
         try {
-            ; Get current pin status
             isPinned := WinGetExStyle("ahk_id " hWnd)
-
-            ; Get window info for notification
             windowTitle := WinGetTitle("ahk_id " hWnd)
             processName := WinGetProcessName("ahk_id " hWnd)
             displayName := windowTitle != "" && StrLen(windowTitle) <= 50 ? windowTitle : processName
-
             if (isPinned & 0x8) {
-                ; Window is pinned, unpin it
                 WinSetAlwaysOnTop false, "ahk_id " hWnd
                 TrayTip(displayName . "`nWindow unpinned.", "Always-on-top", "Iconi 1")
             } else {
-                ; Window is not pinned, pin it
                 WinSetAlwaysOnTop true, "ahk_id " hWnd
                 TrayTip(displayName . "`nWindow pinned.", "Always-on-top", "Iconi 1")
             }
-
-            ; Refresh menu after a short delay to show the change
             SetTimer(() => RefreshTrayMenu(), -500)
-
         } catch Error as e {
             TrayTip("Failed to toggle window: " . e.Message, "Error", "Iconx 3")
         }
@@ -367,46 +329,32 @@ HideTrayTip() {
   
 SendActiveWindowPathToOpus() {
     global DOPUS_RT_PATH
-    
-    ; Check if Directory Opus is available first
     SplitPath DOPUS_RT_PATH, , &dopusDir
     dopusPath := dopusDir . "\dopus.exe"
     opusAvailable := FileExist(dopusPath) && FileExist(DOPUS_RT_PATH)
-    
     try {
         activeTitle := WinGetTitle("A")
         activeProcess := WinGetProcessName("A")
         activeProcessPath := WinGetProcessPath("A")
-        
-        ; Skip if Directory Opus is already active
         if (activeProcess = "dopus.exe" || activeProcess = "dopusrt.exe") {
             return
         }
-        
-        ; Determine the path to open
         pathToOpen := ""
         fileToSelect := ""
-        
-        ; Handle regular applications (like Chrome, etc.)
         if (activeProcessPath && FileExist(activeProcessPath)) {
             SplitPath activeProcessPath, &executableName, &parentDir
             pathToOpen := parentDir
             fileToSelect := executableName
         }
-        ; Handle Windows Explorer specifically
         else if (activeProcess = "explorer.exe") {
             explorerPath := GetExplorerPath()
             if (explorerPath && FileExist(explorerPath)) {
                 pathToOpen := explorerPath
             }
         }
-        
-        ; If no valid path found, use fallback
         if (!pathToOpen) {
             pathToOpen := A_MyDocuments
         }
-        
-        ; Try Directory Opus first if available
         if (opusAvailable) {
             try {
                 if (IsOpusRunning()) {
@@ -414,40 +362,27 @@ SendActiveWindowPathToOpus() {
                 } else {
                     SendToOpusViaRT(pathToOpen, fileToSelect, false)
                 }
-                return ; Success - exit function
+                return
             } catch Error as e {
-                ; Opus failed, continue to Explorer fallback
                 TrayTip("Directory Opus failed, opening Explorer instead.", "Fallback", "Iconi 2")
             }
         }
-        
-        ; Fallback to Windows Explorer
         OpenWithExplorer(pathToOpen, fileToSelect)
-        
     } catch Error as e {
-        ; Final fallback - just open My Documents in Explorer
         TrayTip("Error occurred, opening My Documents in Explorer.", "Error", "Iconx 3")
         OpenWithExplorer(A_MyDocuments, "")
     }
 }
 
-; New function to open path in Windows Explorer (reuses existing windows when possible)
 OpenWithExplorer(path, fileToSelect := "") {
     try {
-        ; Ensure path exists
         if (!FileExist(path)) {
             path := A_MyDocuments
         }
-        
-        ; Try to reuse existing Explorer window first
         existingWindow := FindExistingExplorerWindow()
-        
         if (existingWindow) {
-            ; Navigate existing window to the path
             if (NavigateExplorerWindow(existingWindow, path)) {
-                ; Successfully navigated existing window
                 WinActivate("ahk_id " . existingWindow)
-                
                 if (fileToSelect && fileToSelect != "" && FileExist(path . "\" . fileToSelect)) {
                     TrayTip("Navigated to: " . path . "`nNote: File selection requires new window", "Windows Explorer", "Iconi 1")
                 } else {
@@ -456,43 +391,31 @@ OpenWithExplorer(path, fileToSelect := "") {
                 return
             }
         }
-        
-        ; No existing window or navigation failed - open new window
         if (fileToSelect && fileToSelect != "" && FileExist(path . "\" . fileToSelect)) {
-            ; Select specific file (requires new window)
             fullFilePath := path . "\" . fileToSelect
             Run 'explorer.exe /select,"' . fullFilePath . '"'
             TrayTip("Opened: " . path . "`nSelected: " . fileToSelect, "Windows Explorer", "Iconi 1")
         } else {
-            ; Just open the folder
             Run 'explorer.exe "' . path . '"'
             TrayTip("Opened: " . path, "Windows Explorer", "Iconi 1")
         }
-        
-        ; Give Explorer time to open, then try to activate it
         Sleep 200
         try {
             WinActivate("ahk_class CabinetWClass")
         } catch {
-            ; Ignore activation errors
         }
-        
     } catch Error as e {
         TrayTip("Failed to open Windows Explorer: " . e.Message, "Error", "Iconx 3")
     }
 }
 
-; Find an existing Explorer window to reuse
 FindExistingExplorerWindow() {
     try {
-        ; Look for Explorer windows (file explorer, not desktop)
         windowList := WinGetList("ahk_class CabinetWClass")
         for hwnd in windowList {
             try {
-                ; Make sure it's a real Explorer window and not something else
                 processName := WinGetProcessName("ahk_id " . hwnd)
                 if (processName = "explorer.exe") {
-                    ; Check if window is visible and not minimized
                     if (WinGetMinMax("ahk_id " . hwnd) != -1) {
                         return hwnd
                     }
@@ -502,15 +425,12 @@ FindExistingExplorerWindow() {
             }
         }
     } catch {
-        ; No Explorer windows found
     }
     return 0
 }
 
-; Navigate an existing Explorer window to a new path
 NavigateExplorerWindow(hwnd, path) {
     try {
-        ; Try COM approach first
         shell := ComObject("Shell.Application")
         for window in shell.Windows {
             try {
@@ -522,104 +442,72 @@ NavigateExplorerWindow(hwnd, path) {
                 continue
             }
         }
-        
-        ; Fallback: Try address bar method
         WinActivate("ahk_id " . hwnd)
         Sleep 100
-        
-        ; Send Ctrl+L to focus address bar
         Send "^l"
         Sleep 50
-        
-        ; Clear and type new path
         Send "^a"
         Sleep 10
         Send path
         Sleep 10
         Send "{Enter}"
-        
         return true
-        
     } catch {
         return false
     }
 }
 
-; Fixed IsOpusRunning function
 IsOpusRunning() {
     try {
-        ; Check if dopus.exe process is running
         return ProcessExist("dopus.exe") ? true : false
     } catch {
         return false
     }
 }
 
-; Fixed SendToOpusViaRT function
 SendToOpusViaRT(path, fileToSelect := "", reuseExisting := false) {
     global DOPUS_RT_PATH
-    
-    ; Get dopus.exe path (assuming it's in the same directory as dopusrt.exe)
     SplitPath DOPUS_RT_PATH, , &dopusDir
     dopusPath := dopusDir . "\dopus.exe"
-    
     if (!FileExist(dopusPath)) {
         TrayTip("dopus.exe not found at: " dopusPath, "Error", "Iconx 3")
         return
     }
-    
-    ; Ensure path exists
     if (!FileExist(path)) {
         TrayTip("Path does not exist: " path, "Error", "Iconx 3")
         return
     }
-    
-    ; Build the command - just open dopus.exe with the path
     if (reuseExisting && IsOpusRunning()) {
-        ; If Opus is already running, just open the path (it will reuse existing window)
         command := '"' . dopusPath . '" "' . path . '"'
     } else {
-        ; Open new instance
         command := '"' . dopusPath . '" "' . path . '"'
     }
-    
-    ; If we want to select a specific file, add it to the path
     if (fileToSelect && fileToSelect != "") {
         command := '"' . dopusPath . '" "' . path . '" /select,"' . fileToSelect . '"'
     }
-    
     try {
         Run command, , "Hide"
-        
-        ; Show appropriate notification
         if (fileToSelect && fileToSelect != "") {
             TrayTip("Opened: " path "`nSelected: " fileToSelect, "Directory Opus", "Iconi 1")
         } else {
             TrayTip("Opened: " path, "Directory Opus", "Iconi 1")
         }
-        
-        ; Give Opus time to open, then activate it
         Sleep 300
         try {
             WinActivate("ahk_exe dopus.exe")
         } catch {
-            ; Ignore activation errors
         }
-        
     } catch Error as e {
         TrayTip("Failed to open Directory Opus: " . e.Message, "Error", "Iconx 3")
     }
 }
 
-; Improved GetExplorerPath function
 GetExplorerPath() {
-    ; Try COM-based approach first
     try {
         shell := ComObject("Shell.Application")
         for window in shell.Windows {
             try {
                 if (window.HWND && WinGetProcessName("ahk_id " window.HWND) = "explorer.exe") {
-                    ; Check if this is the active window
                     activeHwnd := WinGetID("A")
                     if (window.HWND = activeHwnd) {
                         path := window.Document.Folder.Self.Path
@@ -633,10 +521,7 @@ GetExplorerPath() {
             }
         }
     } catch {
-        ; Continue to fallback methods
     }
-    
-    ; Fallback: Check address bar
     try {
         explorerPath := ControlGetText("Edit1", "A")
         if (explorerPath && explorerPath != "") {
@@ -649,10 +534,7 @@ GetExplorerPath() {
             }
         }
     } catch {
-        ; Continue to next fallback
     }
-    
-    ; Fallback: Parse window title
     try {
         title := WinGetTitle("A")
         if (title && (InStr(title, ":\\") || InStr(title, "\\"))) {
@@ -663,10 +545,8 @@ GetExplorerPath() {
             }
         }
     } catch {
-        ; Continue to final fallback
     }
-    
-    return A_MyDocuments  ; Final fallback
+    return A_MyDocuments
 }
 
 ToggleAutoStart() {
@@ -696,19 +576,14 @@ ToggleAutoStart() {
     UpdateAutoStartCheck()
 }
 
-; Enhanced Startup Manager with comprehensive location support - NO CHECKBOXES
 ShowStartupManager() {
     global StartupMgr, StartupList
     StartupMgr := Gui("+Resize", "Startup Manager")
     StartupMgr.OnEvent("Close", (*) => StartupMgr.Destroy())
     StartupMgr.OnEvent("Escape", (*) => StartupMgr.Destroy())
-    
     StartupMgr.Add("Text",, "Manage Windows startup programs:")
-    
-    ; ListView without Checked option - no checkboxes
     StartupList := StartupMgr.Add("ListView", "w800 h300", ["Program", "Status", "Path", "Location"])
     StartupList.OnEvent("DoubleClick", (*) => ToggleProgramAtRow(StartupList.GetNext()))
-    
     AddProgramBtn := StartupMgr.Add("Button", "w80 x10 y+10", "Add Program")
     AddProgramBtn.OnEvent("Click", (*) => AddProgram())
     RemoveProgramBtn := StartupMgr.Add("Button", "w80 x+10", "Remove")
@@ -719,15 +594,12 @@ ShowStartupManager() {
     RefreshListBtn.OnEvent("Click", (*) => LoadStartupPrograms())
     CloseStartupBtn := StartupMgr.Add("Button", "w80 x+10", "Close")
     CloseStartupBtn.OnEvent("Click", (*) => StartupMgr.Destroy())
-    
     LoadStartupPrograms()
     StartupMgr.Show("w820 h400")
 }
 
 LoadStartupPrograms() {
     global StartupList, ENABLED_REG_PATH, DISABLED_REG_PATH
-    
-    ; Remember current selection
     selectedRow := StartupList.GetNext()
     selectedProgramName := ""
     selectedProgramPath := ""
@@ -735,10 +607,7 @@ LoadStartupPrograms() {
         selectedProgramName := StartupList.GetText(selectedRow, 1)
         selectedProgramPath := StartupList.GetText(selectedRow, 3)
     }
-    
     StartupList.Delete()
-    
-    ; Define all startup locations
     startupLocations := [
         {path: "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run", location: "HKCU Run", enabled: true},
         {path: "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run_Disabled", location: "HKCU Run (Disabled)", enabled: false},
@@ -749,78 +618,53 @@ LoadStartupPrograms() {
         {path: "HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Run", location: "HKLM Run (32-bit)", enabled: true},
         {path: "HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\RunOnce", location: "HKLM RunOnce (32-bit)", enabled: true}
     ]
-    
     newSelectedRow := 0
     currentRow := 0
-      ; Read from registry locations
     for location in startupLocations {
         try {
             Loop Reg, location.path {
                 try {
                     currentRow++
                     regValue := RegRead(location.path, A_LoopRegName)
-                    
-                    ; Extract executable name from path for better display
-                    execPath := RegExReplace(regValue, '^"([^"]*)".*', '$1')  ; Remove quotes and parameters
+                    execPath := RegExReplace(regValue, '^"([^"]*)".*', '$1')
                     SplitPath execPath, &fileName, &fileDir
-                    
                     displayName := fileName ? fileName : A_LoopRegName
                     fullLocation := location.location
-                    
-                    ; Add without checkbox - just the data
                     StartupList.Add("", displayName, location.enabled ? "Enabled" : "Disabled", regValue, fullLocation)
-                    
-                    ; Check if this was the previously selected item
                     if (selectedProgramName = displayName && selectedProgramPath = regValue) {
                         newSelectedRow := currentRow
                     }
                 } catch {
-                    ; Skip entries that can't be read
                 }
             }
         } catch {
-            ; Skip locations that can't be accessed
         }
     }
-    
-    ; Read from startup folders
     startupFolders := [
         {path: A_Startup, location: "User Startup Folder"},
         {path: A_StartupCommon, location: "Common Startup Folder"}
     ]
-    
     for folder in startupFolders {
         try {
             Loop Files, folder.path . "\*.*" {
-                ; Skip hidden/system files and shortcuts to folders
                 if (A_LoopFileAttrib ~= "[HS]")
                     continue
-                
                 currentRow++
                 displayName := A_LoopFileName
                 fullPath := A_LoopFileFullPath
-                
-                ; Add without checkbox - just the data
                 StartupList.Add("", displayName, "Enabled", fullPath, folder.location)
-                
-                ; Check if this was the previously selected item
                 if (selectedProgramName = displayName && selectedProgramPath = fullPath) {
                     newSelectedRow := currentRow
                 }
             }
         } catch {
-            ; Skip if folder can't be accessed
         }
     }
-    
-    ; Update ListView columns
     StartupList.ModifyCol()
-    StartupList.ModifyCol(1, 180)  ; Program name
-    StartupList.ModifyCol(2, 80)   ; Status
-    StartupList.ModifyCol(3, 300)  ; Path
-    StartupList.ModifyCol(4, 150)  ; Location
-    
-    ; Restore selection
+    StartupList.ModifyCol(1, 180)
+    StartupList.ModifyCol(2, 80)
+    StartupList.ModifyCol(3, 300)
+    StartupList.ModifyCol(4, 150)
     if (newSelectedRow > 0) {
         StartupList.Modify(newSelectedRow, "Select Focus")
     }
@@ -828,28 +672,21 @@ LoadStartupPrograms() {
 
 ToggleProgramAtRow(rowNum) {
     global StartupList, ENABLED_REG_PATH, DISABLED_REG_PATH
-    
     if (!rowNum || rowNum <= 0) {
         TrayTip("Please select a program to toggle.", "Startup Manager", "Iconi 2")
         return
     }
-    
     programName := StartupList.GetText(rowNum, 1)
     currentStatus := StartupList.GetText(rowNum, 2)
     programPath := StartupList.GetText(rowNum, 3)
     location := StartupList.GetText(rowNum, 4)
-    
     if (!programName || !programPath) {
         TrayTip("Invalid program selection.", "Error", "Iconx 3")
         return
     }
-    
     try {
-        ; Handle registry entries
         if (InStr(location, "HKCU") || InStr(location, "HKLM")) {
-            ; Determine source and target registry paths
             if (currentStatus = "Enabled") {
-                ; Move from enabled to disabled
                 if (InStr(location, "HKCU")) {
                     sourceRegPath := "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run"
                     targetRegPath := "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run_Disabled"
@@ -862,15 +699,10 @@ ToggleProgramAtRow(rowNum) {
                         targetRegPath := "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Run_Disabled"
                     }
                 }
-                
-                ; Find the registry key name
                 regKeyName := FindRegistryKeyName(sourceRegPath, programPath)
                 if (regKeyName) {
-                    ; Read the value before deleting
                     regValue := RegRead(sourceRegPath, regKeyName)
-                    ; Delete from enabled location
                     RegDelete sourceRegPath, regKeyName
-                    ; Add to disabled location
                     RegWrite regValue, "REG_SZ", targetRegPath, regKeyName
                     TrayTip(programName . " has been disabled.", "Startup Manager", "Iconi 1")
                 } else {
@@ -878,7 +710,6 @@ ToggleProgramAtRow(rowNum) {
                     return
                 }
             } else {
-                ; Move from disabled to enabled
                 if (InStr(location, "HKCU")) {
                     sourceRegPath := "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run_Disabled"
                     targetRegPath := "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run"
@@ -891,14 +722,10 @@ ToggleProgramAtRow(rowNum) {
                         targetRegPath := "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
                     }
                 }
-                
                 regKeyName := FindRegistryKeyName(sourceRegPath, programPath)
                 if (regKeyName) {
-                    ; Read the value before deleting
                     regValue := RegRead(sourceRegPath, regKeyName)
-                    ; Delete from disabled location
                     RegDelete sourceRegPath, regKeyName
-                    ; Add to enabled location
                     RegWrite regValue, "REG_SZ", targetRegPath, regKeyName
                     TrayTip(programName . " has been enabled.", "Startup Manager", "Iconi 1")
                 } else {
@@ -907,44 +734,31 @@ ToggleProgramAtRow(rowNum) {
                 }
             }
         } else {
-            ; Handle startup folder entries
             TrayTip("Startup folder items cannot be toggled. Use Remove to delete them.", "Startup Manager", "Iconi 2")
             return
         }
-        
-        ; Refresh the list to show changes
         LoadStartupPrograms()
-        
     } catch Error as e {
         TrayTip("Error toggling program: " . e.Message, "Error", "Iconx 3")
     }
 }
 
- 
 RemoveProgram() {
     global StartupList
-    
     selectedRow := StartupList.GetNext()
     if (!selectedRow) {
         TrayTip("Please select a program to remove.", "Startup Manager", "Iconi 2")
         return
     }
-    
     programName := StartupList.GetText(selectedRow, 1)
     programPath := StartupList.GetText(selectedRow, 3)
     location := StartupList.GetText(selectedRow, 4)
-    
-    ; Confirmation dialog
     result := MsgBox("Are you sure you want to remove '" . programName . "' from startup?", "Confirm Removal", "YesNo Icon?")
     if (result = "No")
         return
-    
     try {
         success := false
-        
-        ; Handle registry entries
         if (InStr(location, "HKCU") || InStr(location, "HKLM")) {
-            ; Determine registry path based on location
             if (InStr(location, "HKCU Run (Disabled)")) {
                 regPath := "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run_Disabled"
             } else if (InStr(location, "HKCU Run")) {
@@ -966,39 +780,28 @@ RemoveProgram() {
                     regPath := "HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Run"
                 }
             }
-            
-            ; Find and delete the registry key  
             regKeyName := FindRegistryKeyName(regPath, programPath)
             if (regKeyName) {
                 RegDelete regPath, regKeyName
                 success := true
             }
         } else {
-            ; Handle startup folder entries
             if (FileExist(programPath)) {
                 FileDelete programPath
                 success := true
             }
         }
-        
         if (success) {
             TrayTip(programName . " has been removed from startup.", "Startup Manager", "Iconi 1")
-            
-            ; Remember next item to select
             totalItems := StartupList.GetCount()
             nextSelection := selectedRow <= totalItems - 1 ? selectedRow : totalItems - 1
-            
-            ; Refresh the list
             LoadStartupPrograms()
-            
-            ; Select next logical item
             if (nextSelection > 0) {
                 StartupList.Modify(nextSelection, "Select Focus")
             }
         } else {
             TrayTip("Failed to remove " . programName, "Error", "Iconx 3")
         }
-        
     } catch Error as e {
         TrayTip("Error removing program: " . e.Message, "Error", "Iconx 3")
     }
@@ -1006,29 +809,18 @@ RemoveProgram() {
 
 AddProgram() {
     global StartupList
-    
-    ; File selection dialog
     selectedFile := FileSelect(1, , "Select Program to Add to Startup", "Executable Files (*.exe)")
     if (!selectedFile)
         return
-    
     if (!FileExist(selectedFile)) {
         TrayTip("Selected file does not exist.", "Error", "Iconx 3")
         return
     }
-    
-    ; Get program name for display
     SplitPath selectedFile, &fileName
-    
     try {
-        ; Add to current user startup registry
         RegWrite selectedFile, "REG_SZ", "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run", fileName
         TrayTip(fileName . " has been added to startup.", "Startup Manager", "Iconi 1")
-        
-        ; Refresh the list
         LoadStartupPrograms()
-        
-        ; Find and select the newly added item
         itemCount := StartupList.GetCount()
         Loop itemCount {
             if (StartupList.GetText(A_Index, 1) = fileName) {
@@ -1036,13 +828,11 @@ AddProgram() {
                 break
             }
         }
-        
     } catch Error as e {
         TrayTip("Failed to add program to startup: " . e.Message, "Error", "Iconx 3")
     }
 }
 
-; Helper function to find registry key name by comparing values
 FindRegistryKeyName(regPath, targetValue) {
     try {
         Loop Reg, regPath {
