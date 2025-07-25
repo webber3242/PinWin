@@ -1,3 +1,4 @@
+#Requires AutoHotkey v2.0
 #SingleInstance Force
 Persistent()
 SendMode "Input"
@@ -5,25 +6,24 @@ SetWorkingDir A_ScriptDir
 CoordMode "Mouse", "Screen"
 
 ; --- CONFIG ---
-TRAY_ICON := "C:\Users\web\Desktop\Middle Application Title Bar Toggle Pin to Top\pin.ico"
+TRAY_ICON := A_ScriptDir "\pin.ico"
 MAX_WINDOWS_TO_SHOW := 30
 DOPUS_RT_PATH := "C:\Program Files\GPSoftware\Directory Opus\dopusrt.exe"
 DISABLED_REG_PATH := "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run_Disabled"
 ENABLED_REG_PATH := "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run"
-; ---------------
 
-; Validate tray icon and set it
-if (!FileExist(TRAY_ICON)) {
-    TrayTip("Tray icon not found at: " TRAY_ICON, "Error", "Iconx 3")
-    TraySetIcon()  ; Fallback to default icon
-} else {
+; --- Tray Icon Setup ---
+if FileExist(TRAY_ICON) {
     TraySetIcon(TRAY_ICON)
+} else {
+    TraySetIcon()  ; fallback to default AHK icon
+    TrayTip("Tray icon not found at:`n" TRAY_ICON, "Error", "Iconx 3")
 }
 A_IconTip := "Middle-Click Title Bar Toggle`n(Pin/Unpin Windows)"
 
-; Validate Directory Opus path
-if (!FileExist(DOPUS_RT_PATH)) {
-    TrayTip("dopusrt.exe not found at: " DOPUS_RT_PATH, "Error", "Iconx 3")
+; --- Check for dopusrt.exe ---
+if !FileExist(DOPUS_RT_PATH) {
+    TrayTip("dopusrt.exe not found at:`n" DOPUS_RT_PATH, "Error", "Iconx 3")
 }
 
 RefreshTrayMenu()
